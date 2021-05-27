@@ -74,6 +74,9 @@ public class GeolocateDomain {
             if (!isNull(geolocation.getDomain())) {
                 csvListWriter.write(Arrays.asList(geolocation.getDomain(), geolocation.getCountryCode2(), geolocation.getCountryName()), ipGeolocatedIPAddressesFileCellProcessors);
             } else {
+                System.out.println(geolocation.getStatus());
+                System.out.println(geolocation.getMessage());
+
                 csvListWriter.write(Collections.singletonList(geolocation.getMessage()));
             }
         }
