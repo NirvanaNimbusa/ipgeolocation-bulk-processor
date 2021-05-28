@@ -1,6 +1,10 @@
 package io.ipgeolocation.bulkLookup;
 
-import io.ipgeolocation.api.Geolocation;
+import kong.unirest.HttpResponse;
+import kong.unirest.JsonNode;
+import kong.unirest.json.JSONArray;
+import kong.unirest.json.JSONException;
+import kong.unirest.json.JSONObject;
 import org.supercsv.cellprocessor.constraint.NotNull;
 import org.supercsv.cellprocessor.ift.CellProcessor;
 import org.supercsv.io.CsvListWriter;
@@ -11,11 +15,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.isNull;
 
 public class GeolocateDomain {
     private final String apiKey;
@@ -62,23 +63,25 @@ public class GeolocateDomain {
             }
 
             System.out.println("Done.");
-        } catch (IOException e) {
+        } catch (IOException | JSONException e) {
             e.printStackTrace();
         }
     }
 
-    private void ipGeolocateAndWriteIPAddresses(String[] ipAddresses, CsvListWriter csvListWriter, CellProcessor[] ipGeolocatedIPAddressesFileCellProcessors) throws IOException {
-        List<Geolocation> geolocationList = IPGeolocationLookup.bulkLookup(apiKey, ipAddresses, "country_code2,country_name");
+    private void ipGeolocateAndWriteIPAddresses(String[] ipAddresses, CsvListWriter csvListWriter, CellProcessor[] ipGeolocatedIPAddressesFileCellProcessors) throws IOException, JSONException {
+        HttpResponse<JsonNode> ipGeolocationResponse = IPGeolocationLookup.bulkLookup(apiKey, ipAddresses, "country_code2,country_name");
 
-        for (Geolocation geolocation: geolocationList) {
-            if (!isNull(geolocation.getDomain())) {
-                csvListWriter.write(Arrays.asList(geolocation.getDomain(), geolocation.getCountryCode2(), geolocation.getCountryName()), ipGeolocatedIPAddressesFileCellProcessors);
-            } else {
-                System.out.println("Domains: " + String.join(",", ipAddresses));
-                System.out.println(geolocation.getStatus());
-                System.out.println(geolocation.getMessage());
+        if (ipGeolocationResponse.getStatus() == 200) {
+            JSONArray ipGeolocationList = ipGeolocationResponse.getBody().getArray();
 
-                csvListWriter.write(Collections.singletonList(geolocation.getMessage()));
+            for (int i = 0; i < ipGeolocationList.length(); i++) {
+                JSONObject ipGeolocation = (JSONObject) ipGeolocationList.get(i);
+
+                if (ipGeolocation.has("message")) {
+                    csvListWriter.write(Arrays.asList(ipAddresses[i], ipGeolocation.getString("message")));
+                } else if (ipGeolocation.has("domain")) {
+                    csvListWriter.write(Arrays.asList(ipGeolocation.getString("domain"), ipGeolocation.getString("country_code2"), ipGeolocation.getString("country_name")), ipGeolocatedIPAddressesFileCellProcessors);
+                }
             }
         }
     }

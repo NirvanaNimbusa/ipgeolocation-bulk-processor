@@ -3,15 +3,17 @@ package io.ipgeolocation.bulkLookup;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
-import io.ipgeolocation.api.Geolocation;
-import io.ipgeolocation.api.GeolocationParams;
-import io.ipgeolocation.api.IPGeolocationAPI;
+import kong.unirest.HttpResponse;
+import kong.unirest.JsonNode;
+import kong.unirest.Unirest;
+import kong.unirest.json.JSONObject;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class IPGeolocationLookup {
 
-    public static List<Geolocation> bulkLookup(String apiKey, String[] ipAddresses, String fields) {
+    public static HttpResponse<JsonNode> bulkLookup(String apiKey, String[] ipAddresses, String fields) {
         if (isNullOrEmpty(apiKey)) {
             throw new NullPointerException("Pre-condition violated: API key must not be null or empty.");
         }
@@ -22,11 +24,15 @@ public class IPGeolocationLookup {
             fields = "*";
         }
 
-        IPGeolocationAPI ipGeolocationAPI = new IPGeolocationAPI(apiKey);
-        GeolocationParams geolocationParams = new GeolocationParams();
-        geolocationParams.setFields(fields);
-        geolocationParams.setIPAddresses(ipAddresses);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("apiKey", apiKey);
+        parameters.put("fields", fields);
 
-        return ipGeolocationAPI.getBulkGeolocation(geolocationParams);
+        return Unirest.post("https://api.ipgeolocation.io/ipgeo-bulk")
+                .body(new JSONObject().put("ips", ipAddresses))
+                .queryString(parameters)
+                .contentType("application/json")
+                .accept("application/json")
+                .asJson();
     }
 }
